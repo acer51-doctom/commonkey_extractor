@@ -1,4 +1,4 @@
-name: Rust
+name: Rust Multi-Platform CI
 
 on:
   push:
@@ -11,41 +11,92 @@ env:
 
 jobs:
   build:
-
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        arch: [x64, arm64]
+        include:
+          - os: ubuntu-latest
+            arch: x64
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: x86
+            target: i686-unknown-linux-gnu
+
+          - os: windows-latest
+            arch: x64
+            target: x86_64-pc-windows-gnu
+          - os: windows-latest
+            arch: x86
+            target: i686-pc-windows-gnu
+
+          - os: macos-latest
+            arch: x64
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            arch: arm64
+            target: aarch64-apple-darwin
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        target: ${{ matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest' && 'aarch64-unknown-linux-gnu' || '' }}
-        override: true
+    - name: Install Rust target
+      run: rustup target add ${{ matrix.target }}
 
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --target ${{ matrix.target }}
 
-    - name: Rename binary
+    - name: Package binary
       shell: bash
       run: |
-        mkdir output
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          cp target/debug/commonkey_extractor.exe output/commonkey_extractor_windows_${{ matrix.arch }}.exe
-        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-          cp target/debug/commonkey_extractor output/commonkey_extractor_macos_${{ matrix.arch }}
+        mkdir -p output
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          BIN_NAME="commonkey_extractor_${{ matrix.os }}_${{ matrix.arch }}.exe"
+          cp target/${{ matrix.target }}/debug/*.exe output/$BIN_NAME
         else
-          cp target/debug/commonkey_extractor output/commonkey_extractor_linux_${{ matrix.arch }}
+          BIN_NAME="commonkey_extractor_${{ matrix.os }}_${{ matrix.arch }}"
+          cp target/${{ matrix.target }}/debug/* output/$BIN_NAME
         fi
 
-    - name: Upload artifact
+    - name: Upload binary artifact
       uses: actions/upload-artifact@v4
       with:
-        name: commonkey_extractor_${{ matrix.os }}_${{ matrix.arch }}
+        name: binary-${{ matrix.os }}-${{ matrix.arch }}
         path: output/*
+
+  bundle:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Download all binaries
+      uses: actions/download-artifact@v4
+      with:
+        path: all-binaries
+
+    - name: Organize folders
+      run: |
+        mkdir -p bundle/x86 bundle/x64 bundle/arm64
+        find all-binaries -type f | while read FILE; do
+          if [[ "$FILE" == *"x86"* ]]; then
+            cp "$FILE" bundle/x86/
+          elif [[ "$FILE" == *"x64"* ]]; then
+            cp "$FILE" bundle/x64/
+          elif [[ "$FILE" == *"arm64"* ]]; then
+            cp "$FILE" bundle/arm64/
+          fi
+        done
+
+    - name: Create zip
+      run: |
+        cd bundle
+        zip -r ../commonkey_extractors.zip .
+
+    - name: Upload final zip
+      uses: actions/upload-artifact@v4
+      with:
+        name: commonkey_extractors
+        path: commonkey_extractors.zip
