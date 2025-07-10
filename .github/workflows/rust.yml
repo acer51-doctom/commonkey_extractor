@@ -1,4 +1,4 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
@@ -11,6 +11,7 @@ env:
 
 jobs:
   build:
+    name: Build ${{ matrix.platform }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -51,24 +52,59 @@ jobs:
         if: matrix.target == 'i686-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get install -y gcc-multilib
 
-      - name: Add target
+      - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
       - name: Build
         run: cargo build --release --target=${{ matrix.target }}
 
-      - name: Rename output binary
+      - name: Rename binary
         run: |
-          mkdir -p out/${{ matrix.platform }}/${{ matrix.arch }}
+          mkdir -p out/${{ matrix.arch }}
           BIN_NAME=commonkey_extractor_${{ matrix.platform }}_${{ matrix.arch }}
-          # Windows binaries need .exe
           if [[ "${{ matrix.platform }}" == "windows" ]]; then
             BIN_NAME="${BIN_NAME}.exe"
           fi
-          cp target/${{ matrix.target }}/release/YOUR_BINARY_NAME out/${{ matrix.platform }}/${{ matrix.arch }}/${BIN_NAME}
+          cp target/${{ matrix.target }}/release/commonkey_extractor_ out/${{ matrix.arch }}/$BIN_NAME
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build_${{ matrix.platform }}_${{ matrix.arch }}
-          path: out/${{ matrix.platform }}/${{ matrix.arch }}
+          name: ${{ matrix.platform }}_${{ matrix.arch }}
+          path: out/${{ matrix.arch }}/
+
+  bundle:
+    name: Bundle all builds
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_builds
+
+      - name: Show folder structure
+        run: ls -R all_builds
+
+      - name: Rearrange folders
+        run: |
+          mkdir -p bundle/x86 bundle/x86_64 bundle/arm
+          find all_builds -type f | while read file; do
+            if echo "$file" | grep -q '_x86'; then
+              mv "$file" bundle/x86/
+            elif echo "$file" | grep -q '_x86_64'; then
+              mv "$file" bundle/x86_64/
+            elif echo "$file" | grep -q '_arm'; then
+              mv "$file" bundle/arm/
+            fi
+          done
+
+      - name: Zip all
+        run: zip -r ALL_BUILDS.zip bundle
+
+      - name: Upload final ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ALL_BUILDS
+          path: ALL_BUILDS.zip
