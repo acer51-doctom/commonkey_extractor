@@ -1,4 +1,4 @@
-name: Rust Multi-Platform Build
+name: Rust
 
 on:
   push:
