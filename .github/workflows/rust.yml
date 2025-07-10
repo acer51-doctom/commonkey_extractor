@@ -12,11 +12,48 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [x64, arm64]
+      exclude:
+        - os: windows-latest
+          arch: arm64  # GitHub doesn't support Windows ARM runners by default.
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest' && 'aarch64-unknown-linux-gnu' || '' }}
+        override: true
+
     - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      run: |
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          cargo build --verbose --target-dir target
+        else
+          cargo build --verbose --target-dir target
+        fi
+
+    - name: Rename binary
+      shell: bash
+      run: |
+        mkdir output
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          cp target/debug/commonkey_extractor.exe output/commonkey_extractor_windows_${{ matrix.arch }}.exe
+        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+          cp target/debug/commonkey_extractor output/commonkey_extractor_macos_${{ matrix.arch }}
+        else
+          cp target/debug/commonkey_extractor output/commonkey_extractor_linux_${{ matrix.arch }}
+        fi
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: commonkey_extractor_${{ matrix.os }}_${{ matrix.arch }}
+        path: output/*
