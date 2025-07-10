@@ -80,3 +80,8 @@ jobs:
         cd final
         zip -r ../commonkey_extractors.zip .
       uses: actions/upload-artifact@v4
+
+    - name: Upload final zip
+      uses: actions/upload-artifact@v4
+      with:
+        path: commonkey_extractors.zip
