@@ -1,4 +1,4 @@
-name: Rust Multi-Platform CI
+name: Rust
 
 on:
   push:
