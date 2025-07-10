@@ -31,15 +31,11 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Rust
-      uses: actions/setup-rust@v1
+      uses: actions-rs/toolchain@v1
       with:
-        rust-version: stable
-
-    - name: Add ARM target if needed
-      run: |
-        if [ "${{ matrix.arch }}" = "arm64" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-          rustup target add aarch64-unknown-linux-gnu
-        fi
+        toolchain: stable
+        target: ${{ matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest' && 'aarch64-unknown-linux-gnu' || '' }}
+        override: true
 
     - name: Build
       run: cargo build --verbose
@@ -48,15 +44,15 @@ jobs:
       shell: bash
       run: |
         mkdir -p output
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
           cp target/debug/commonkey_extractor.exe output/commonkey_extractor_windows_${{ matrix.arch }}.exe
-        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
           cp target/debug/commonkey_extractor output/commonkey_extractor_macos_${{ matrix.arch }}
         else
           cp target/debug/commonkey_extractor output/commonkey_extractor_linux_${{ matrix.arch }}
         fi
 
-    - name: Upload binary artifact
+    - name: Upload single binary
       uses: actions/upload-artifact@v4
       with:
         name: binary-${{ matrix.os }}-${{ matrix.arch }}
@@ -75,15 +71,16 @@ jobs:
     - name: Organize folders
       run: |
         mkdir -p final/x64 final/arm64
+
         find combined_binaries -type f -name "*x64*" -exec mv {} final/x64/ \;
         find combined_binaries -type f -name "*arm64*" -exec mv {} final/arm64/ \;
 
-    - name: Create final ZIP
+    - name: Create zip
       run: |
         cd final
         zip -r ../commonkey_extractors.zip .
 
-    - name: Upload final ZIP
+    - name: Upload final zip
       uses: actions/upload-artifact@v4
       with:
         name: all-platforms-zip
