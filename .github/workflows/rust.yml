@@ -1,4 +1,4 @@
-name: Rust CI
+name: Rust Multi-Platform Build
 
 on:
   push:
@@ -11,100 +11,77 @@ env:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
+
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            platform: linux
-            arch: x86_64
+            arch: x64
           - os: ubuntu-latest
-            target: i686-unknown-linux-gnu
-            platform: linux
-            arch: x86
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            platform: linux
+            arch: arm64
+          - os: macos-latest
+            arch: x64
+          - os: macos-latest
             arch: arm64
           - os: windows-latest
-            target: x86_64-pc-windows-gnu
-            platform: windows
-            arch: x86_64
-          - os: windows-latest
-            target: i686-pc-windows-gnu
-            platform: windows
-            arch: x86
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            platform: macos
-            arch: x86_64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            platform: macos
-            arch: arm64
+            arch: x64
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Install dependencies (Linux x86 only)
-        if: matrix.target == 'i686-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y gcc-multilib
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest' && 'aarch64-unknown-linux-gnu' || '' }}
+        override: true
 
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.target }}
+    - name: Build
+      run: cargo build --verbose
 
-      - name: Build
-        run: cargo build --release --target=${{ matrix.target }}
+    - name: Rename binary
+      shell: bash
+      run: |
+        mkdir -p output
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          cp target/debug/commonkey_extractor.exe output/commonkey_extractor_windows_${{ matrix.arch }}.exe
+        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+          cp target/debug/commonkey_extractor output/commonkey_extractor_macos_${{ matrix.arch }}
+        else
+          cp target/debug/commonkey_extractor output/commonkey_extractor_linux_${{ matrix.arch }}
+        fi
 
-      - name: Rename binary
-        run: |
-          mkdir -p out/${{ matrix.arch }}
-          BIN_NAME=commonkey_extractor_${{ matrix.platform }}_${{ matrix.arch }}
-          if [[ "${{ matrix.platform }}" == "windows" ]]; then
-            BIN_NAME="${BIN_NAME}.exe"
-          fi
-          cp target/${{ matrix.target }}/release/commonkey_extractor_ out/${{ matrix.arch }}/$BIN_NAME
+    - name: Upload single binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-${{ matrix.os }}-${{ matrix.arch }}
+        path: output/*
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.platform }}_${{ matrix.arch }}
-          path: out/${{ matrix.arch }}/
-
-  bundle:
-    name: Bundle all builds
+  package:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: all_builds
+    - name: Download all binaries
+      uses: actions/download-artifact@v4
+      with:
+        path: combined_binaries
 
-      - name: Show folder structure
-        run: ls -R all_builds
+    - name: Organize folders
+      run: |
+        mkdir -p final/x64 final/arm64
 
-      - name: Rearrange folders
-        run: |
-          mkdir -p bundle/x86 bundle/x86_64 bundle/arm
-          find all_builds -type f | while read file; do
-            if echo "$file" | grep -q '_x86'; then
-              mv "$file" bundle/x86/
-            elif echo "$file" | grep -q '_x86_64'; then
-              mv "$file" bundle/x86_64/
-            elif echo "$file" | grep -q '_arm'; then
-              mv "$file" bundle/arm/
-            fi
-          done
+        find combined_binaries -type f -name "*x64*" -exec mv {} final/x64/ \;
+        find combined_binaries -type f -name "*arm64*" -exec mv {} final/arm64/ \;
 
-      - name: Zip all
-        run: zip -r ALL_BUILDS.zip bundle
+    - name: Create zip
+      run: |
+        cd final
+        zip -r ../commonkey_extractors.zip .
 
-      - name: Upload final ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: ALL_BUILDS
-          path: ALL_BUILDS.zip
+    - name: Upload final zip
+      uses: actions/upload-artifact@v4
+      with:
+        name: all-platforms-zip
+        path: commonkey_extractors.zip
