@@ -18,9 +18,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         arch: [x64, arm64]
-      exclude:
-        - os: windows-latest
-          arch: arm64  # GitHub doesn't support Windows ARM runners by default.
 
     steps:
     - uses: actions/checkout@v4
@@ -33,12 +30,7 @@ jobs:
         override: true
 
     - name: Build
-      run: |
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          cargo build --verbose --target-dir target
-        else
-          cargo build --verbose --target-dir target
-        fi
+      run: cargo build --verbose
 
     - name: Rename binary
       shell: bash
