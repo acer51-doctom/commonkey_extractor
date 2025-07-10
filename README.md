@@ -7,6 +7,8 @@ A common key extractor for all platforms! (Windows, Linux and macOS)
 - [x] Windows (Windows 10 (VM))
 - [x] Linux (Ubuntu 25.04 (VM))
 
+Further testing will need to be done!
+
 ## Usage
 
 - Windows
