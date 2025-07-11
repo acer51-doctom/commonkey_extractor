@@ -17,15 +17,15 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            arch: x86_x64
+            arch: x86-x64
           - os: ubuntu-latest
             arch: arm64
           - os: macos-latest
-            arch: x86_x64
+            arch: x86-x64
           - os: macos-latest
             arch: arm64
           - os: windows-latest
-            arch: x86_x64
+            arch: x86-x64
           - os: windows-latest
             arch: arm64
 
