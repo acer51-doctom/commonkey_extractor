@@ -1,6 +1,8 @@
 # Common Key Extractor for all platforms!
 A common key extractor for all platforms! (Windows, Linux and macOS)
 
+MADE BY THE HELP OF AI. ChatGPT AND Gemini HAVE BEEN USED.
+
 ## Platforms that has been tested
 
 - [x] macOS (macOS Sequoia 15.5 (Host System)) x64
