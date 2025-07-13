@@ -1,28 +1,95 @@
-name: Rust
+# .github/workflows/rust.yml
+
+name: Rust CI & Build
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master # Triggers on pushes to the 'master' branch
+      - main # Often used as the default branch name, include it for robustness
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - main
+  # Optional: Allows manual triggering from the GitHub Actions UI
+  workflow_dispatch:
+
+env:
+  # Ensure colored output in logs for better readability
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  # This job runs linters and tests for faster feedback, typically only on one platform
+  lint-and-test:
+    runs-on: ubuntu-latest # Linux is generally fastest and cheapest for CI checks
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable, with components)
+        uses: dtolnay/rust-toolchain@stable # Recommended modern action
+        with:
+          toolchain: stable
+          components: clippy, rustfmt # Install these components for linting
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build (to ensure dependencies are compiled for clippy/tests)
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Run Clippy (linter)
+        # -D warnings treats lint warnings as errors, failing the build
+        run: cargo clippy -- -D warnings
+
+      - name: Run cargo fmt check
+        # --check makes it fail if files are not formatted, without modifying them
+        run: cargo fmt -- --check
+
+  # This job builds for multiple targets using a matrix strategy
+  build-matrix:
+    # This job depends on lint-and-test passing.
+    # If lint-and-test fails, this job won't even start.
+    needs: lint-and-test
     strategy:
+      fail-fast: false # Don't cancel other matrix jobs if one fails
       matrix:
         include:
+          # Linux builds
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            exe_suffix: ""
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+            exe_suffix: "" # No suffix for Linux binaries
+
+          # Windows builds (cross-compiled from Linux and native MSVC)
           - os: ubuntu-latest
             target: x86_64-pc-windows-gnu
+            exe_suffix: ".exe"
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            exe_suffix: ".exe"
+
+          # macOS builds
           - os: macos-latest
             target: x86_64-apple-darwin
+            exe_suffix: ""
           - os: macos-latest
             target: aarch64-apple-darwin
+            exe_suffix: "" # No suffix for macOS binaries
 
     runs-on: ${{ matrix.os }}
 
@@ -30,40 +97,103 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain for target ${{ matrix.target }}
+        uses: dtolnay/rust-toolchain@stable # Recommended modern action
         with:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
 
-      - name: Install cross (for Linux ARM & cross targets)
-        if: runner.os == 'Linux'
-        run: cargo install cross
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # Cache key now includes the target to ensure correct cache per target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - name: Install cross (for Linux ARM & Windows GNU cross-compilation)
+        if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-gnu')
+        run: cargo install cross --git https://github.com/cross-rs/cross.git --tag v0.2.7 # Use a specific version for stability
 
       - name: Install cross-compilers for Windows GNU (Linux only)
         if: runner.os == 'Linux' && matrix.target == 'x86_64-pc-windows-gnu'
+        # Ensures mingw-w64 is available for GNU target cross-compilation
         run: sudo apt-get update && sudo apt-get install -y mingw-w64
 
-      - name: Download all dependencies
+      - name: Download all dependencies (cargo fetch)
+        # This step is good for pre-filling the cache or ensuring dependencies are present
         run: cargo fetch
 
-      - name: Build with cross
-        if: runner.os == 'Linux' && matrix.target != 'x86_64-unknown-linux-gnu'
+      - name: Build with cross (Linux cross-compilation)
+        if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-gnu')
         run: cross build --release --target=${{ matrix.target }}
+        # Shell is important if you use bash-specific features in run commands
         shell: bash
 
-      - name: Build native
+      - name: Build native (Windows, macOS, or native Linux)
         if: runner.os != 'Linux' || matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo build --release --target=${{ matrix.target }}      
-
-      - name: Run tests (native only)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo test
+        run: cargo build --release --target=${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}-binary
+          name: commonkey_extractor-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/commonkey_extractor${{ matrix.target == 'x86_64-pc-windows-gnu' || matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
+            target/${{ matrix.target }}/release/commonkey_extractor${{ matrix.exe_suffix }}
+          retention-days: 7 # Keep artifacts for 7 days. Adjust as needed.
+
+  # Optional: Release job, triggers only on tags starting with 'v'
+  # This job will download the artifacts and create a GitHub Release
+  release:
+    needs: build-matrix # Depends on all builds in the matrix completing successfully
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') # Only run if a tag like v1.0.0 is pushed
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts # Downloads all artifacts into an 'artifacts' directory
+
+      - name: Prepare release assets
+        # Rename artifacts if necessary for cleaner release asset names
+        run: |
+          mkdir release_assets
+          # Example: Move and rename files from the downloaded structure
+          # They will be in artifacts/commonkey_extractor-x86_64-unknown-linux-gnu/commonkey_extractor
+          # So we flatten them and give user-friendly names
+          mv artifacts/commonkey_extractor-x86_64-unknown-linux-gnu/commonkey_extractor release_assets/commonkey_extractor-linux-x64
+          mv artifacts/commonkey_extractor-aarch64-unknown-linux-gnu/commonkey_extractor release_assets/commonkey_extractor-linux-arm64
+          mv artifacts/commonkey_extractor-x86_64-pc-windows-gnu/commonkey_extractor.exe release_assets/commonkey_extractor-windows-gnu-x64.exe
+          mv artifacts/commonkey_extractor-x86_64-pc-windows-msvc/commonkey_extractor.exe release_assets/commonkey_extractor-windows-msvc-x64.exe
+          mv artifacts/commonkey_extractor-x86_64-apple-darwin/commonkey_extractor release_assets/commonkey_extractor-macos-x64
+          mv artifacts/commonkey_extractor-aarch64-apple-darwin/commonkey_extractor release_assets/commonkey_extractor-macos-arm64
+
+          # Optional: Create a simple release notes file
+          echo "## Release Notes ${{ github.ref_name }}" > release_assets/release_notes.md
+          echo "" >> release_assets/release_notes.md
+          echo "- Common Key Extractor binaries for various platforms." >> release_assets/release_notes.md
+          echo "- Built from commit: ${{ github.sha }}" >> release_assets/release_notes.md
+          echo "---" >> release_assets/release_notes.md
+          echo "For details, see [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})" >> release_assets/release_notes.md
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2 # A popular action for creating releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Automatically provided
+        with:
+          tag_name: ${{ github.ref }} # The tag that triggered the workflow (e.g., v1.0.0)
+          name: Release ${{ github.ref_name }} # Name of the release
+          body_path: release_assets/release_notes.md # Use the generated release notes
+          draft: false # Set to true to create a draft release for manual review
+          prerelease: false # Set to true for pre-releases
+          files: release_assets/* # Upload all files in the prepared directory as assets
