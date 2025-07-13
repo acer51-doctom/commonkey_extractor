@@ -26,8 +26,7 @@ The minimum system requirements are:
 
 - Windows 8.1 or newer
     - **Will work** on Windows mods that are based on Windows 10 or 11 (exemple: Reunion 7)
-- macOS 10.14 Mojave
-- Any Linux distro version that is still relatively new (newer than 2018)
+- OS X 10.11 El Capitan
 
 ## Contributing
 To Contribute, fork the repo and make a branch using the following scheme:
@@ -44,8 +43,6 @@ Then, make a pull request and I'll see the changes you made.
 - [ ] Perhaps make a GUI too
 - [ ] Add more features
 
-
-## Stars history
 
 ## Star History
 
