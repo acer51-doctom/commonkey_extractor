@@ -118,7 +118,8 @@ jobs:
 
       - name: Install cross (for Linux ARM & Windows GNU cross-compilation)
         if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-gnu')
-        run: cargo install cross --git https://github.com/cross-rs/cross.git --tag v0.2.7 # Use a specific version for stability
+        # FIX: Removed the `--tag v0.2.7` to install from main branch
+        run: cargo install cross --git https://github.com/cross-rs/cross.git 
 
       - name: Install cross-compilers for Windows GNU (Linux only)
         if: runner.os == 'Linux' && matrix.target == 'x86_64-pc-windows-gnu'
