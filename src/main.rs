@@ -1,10 +1,10 @@
+use colored::*;
 use std::env;
 use std::fs::{File, metadata};
-use std::io::{self, Read, Write, Seek};
+use std::io::{self, Read, Seek, Write};
 use std::path::Path;
-use std::{thread, time::Duration};
-use colored::*;
 use std::process::Command;
+use std::{thread, time::Duration};
 
 const COMMON_KEY_OFFSET: u64 = 0xE0;
 const COMMON_KEY_SIZE: usize = 16;
@@ -20,7 +20,8 @@ fn clear_screen() {
     }
 }
 
-fn extract_common_key(path: &Path) -> io::Result<[u8; COMMON_KEY_SIZE]> { // Changed signature to &Path
+// Changed signature from &str to &Path
+fn extract_common_key(path: &Path) -> io::Result<[u8; COMMON_KEY_SIZE]> {
     let mut file = File::open(path)?;
     file.seek(io::SeekFrom::Start(COMMON_KEY_OFFSET))?;
 
@@ -29,12 +30,14 @@ fn extract_common_key(path: &Path) -> io::Result<[u8; COMMON_KEY_SIZE]> { // Cha
     Ok(key)
 }
 
-fn is_valid_otp(path: &Path) -> bool { // Changed signature to &Path
+// Changed signature from &str to &Path
+fn is_valid_otp(path: &Path) -> bool {
     if path.extension().and_then(|s| s.to_str()) != Some("bin") {
         return false;
     }
 
-    match metadata(path) { // Clippy fix: needless_borrow - `path` is already a &Path
+    // Clippy fix: needless_borrow - `path` is already a &Path
+    match metadata(path) {
         Ok(meta) => meta.len() == OTP_SIZE,
         Err(_) => false,
     }
@@ -45,20 +48,25 @@ fn main() -> io::Result<()> {
 
     if args.len() > 1 {
         let path_str = args[1].trim().trim_matches(['\'', '"'].as_ref());
-        let path = Path::new(path_str); // Create Path reference once
+        // Create Path reference here for consistent usage
+        let path = Path::new(path_str); 
 
         if !path.exists() {
             eprintln!("{}", "ERROR! Path does not exist.".red());
             std::process::exit(1);
         }
 
-        // Clippy fix: needless_borrow - `path` is already a &Path
+        // Pass `path` (which is now &Path) directly
         if !is_valid_otp(path) {
-            eprintln!("{}", "ERROR! The file you entered is NOT a .bin file or is not exactly 1024 bytes.".red());
+            eprintln!(
+                "{}",
+                "ERROR! The file you entered is NOT a .bin file or is not exactly 1024 bytes."
+                    .red()
+            );
             std::process::exit(1);
         }
 
-        // Clippy fix: needless_borrow - `path` is already a &Path
+        // Pass `path` (which is now &Path) directly
         match extract_common_key(path) {
             Ok(key) => {
                 print!("Your Common Key is: ");
@@ -87,7 +95,8 @@ fn main() -> io::Result<()> {
         let mut path_input = String::new();
         io::stdin().read_line(&mut path_input)?;
         let path_str = path_input.trim().trim_matches(['\'', '"'].as_ref());
-        let path = Path::new(path_str); // Create Path reference once
+        // Create Path reference here for consistent usage
+        let path = Path::new(path_str); 
 
         if !path.exists() {
             eprintln!(
@@ -99,7 +108,7 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        // Clippy fix: needless_borrow - `path` is already a &Path
+        // Pass `path` (which is now &Path) directly
         if !is_valid_otp(path) {
             eprintln!(
                 "{}",
@@ -110,7 +119,7 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        // Clippy fix: needless_borrow - `path` is already a &Path
+        // Pass `path` (which is now &Path) directly
         match extract_common_key(path) {
             Ok(key) => {
                 println!("\nWii U Common Key:");
