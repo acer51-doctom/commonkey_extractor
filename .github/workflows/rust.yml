@@ -118,32 +118,63 @@ jobs:
 
       - name: Install cross (for Linux ARM & Windows GNU cross-compilation)
         if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-gnu')
-        # FIX: Removed the `--tag v0.2.7` to install from main branch
         run: cargo install cross --git https://github.com/cross-rs/cross.git 
 
       - name: Install cross-compilers for Windows GNU (Linux only)
         if: runner.os == 'Linux' && matrix.target == 'x86_64-pc-windows-gnu'
-        # Ensures mingw-w64 is available for GNU target cross-compilation
         run: sudo apt-get update && sudo apt-get install -y mingw-w64
 
       - name: Download all dependencies (cargo fetch)
-        # This step is good for pre-filling the cache or ensuring dependencies are present
         run: cargo fetch
 
       - name: Build with cross (Linux cross-compilation)
         if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-gnu')
         run: cross build --release --target=${{ matrix.target }}
-        # Shell is important if you use bash-specific features in run commands
         shell: bash
 
       - name: Build native (Windows, macOS, or native Linux)
         if: runner.os != 'Linux' || matrix.target == 'x86_64-unknown-linux-gnu'
         run: cargo build --release --target=${{ matrix.target }}
 
+      - name: Rename executable
+        # This step renames the compiled binary using the desired convention.
+        # It needs to be run after the build step for each matrix combination.
+        run: |
+          TARGET_DIR="target/${{ matrix.target }}/release"
+          # Original executable name including .exe suffix if applicable
+          ORIGINAL_FILE_PATH="${TARGET_DIR}/commonkey_extractor${{ matrix.exe_suffix }}"
+          RENAMED_SUFFIX=""
+
+          case "${{ matrix.target }}" in
+            x86_64-unknown-linux-gnu) RENAMED_SUFFIX="linux_x64" ;;
+            aarch64-unknown-linux-gnu) RENAMED_SUFFIX="linux_arm64" ;;
+            x86_64-pc-windows-msvc) RENAMED_SUFFIX="windows_x64_msvc" ;;
+            x86_64-pc-windows-gnu) RENAMED_SUFFIX="windows_x64_gnu" ;;
+            x86_64-apple-darwin) RENAMED_SUFFIX="macos_x64" ;;
+            aarch64-apple-darwin) RENAMED_SUFFIX="macos_arm64" ;;
+            *)
+              echo "Error: Unknown target '${{ matrix.target }}' for renaming."
+              exit 1
+              ;;
+          esac
+
+          # Construct the new file name: commonkey_extractor_<platform/os>_<arch>.<ext>
+          NEW_FILE_NAME="commonkey_extractor_${RENAMED_SUFFIX}${{ matrix.exe_suffix }}"
+          NEW_FILE_PATH="${TARGET_DIR}/${NEW_FILE_NAME}"
+
+          echo "Attempting to rename '${ORIGINAL_FILE_PATH}' to '${NEW_FILE_PATH}'"
+          mv "${ORIGINAL_FILE_PATH}" "${NEW_FILE_PATH}"
+          echo "Successfully renamed: ${ORIGINAL_FILE_PATH} -> ${NEW_FILE_PATH}"
+
+          # Set an environment variable so the next step (upload-artifact) knows the new path.
+          echo "RENAMED_FILE_PATH=${NEW_FILE_PATH}" >> $GITHUB_ENV
+        shell: bash # Use bash for the case statement
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: commonkey_extractor-${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/commonkey_extractor${{ matrix.exe_suffix }}
-          retention-days: 7 # Keep artifacts for 7 days. Adjust as needed.
+          # Now, upload the file from the path stored in the environment variable.
+          path: ${{ env.RENAMED_FILE_PATH }}
+          # The 'name' here is for the folder/label in the GitHub UI, not the file name itself.
+          name: commonkey_extractor_binary_${{ matrix.target }}
+          retention-days: 7
