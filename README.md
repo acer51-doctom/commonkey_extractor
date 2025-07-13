@@ -44,6 +44,20 @@ Then, make a pull request and I'll see the changes you made.
 - [ ] Perhaps make a GUI too
 - [ ] Add more features
 
+
+## Stars history
+
+## Star History
+
+<a href="https://www.star-history.com/#acer51-doctom/commonkey_extractor&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=acer51-doctom/commonkey_extractor&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=acer51-doctom/commonkey_extractor&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=acer51-doctom/commonkey_extractor&type=Date" />
+ </picture>
+</a>
+
+
 ## Issues
 
 Any issues? Report them to the Issues tab. Make sure to write your Operating System version and I will test it under a clean fresh install of it. <br> I will try to replicate it. **Make sure to say every detail for best assistance**
