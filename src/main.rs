@@ -49,7 +49,7 @@ fn main() -> io::Result<()> {
     if args.len() > 1 {
         let path_str = args[1].trim().trim_matches(['\'', '"'].as_ref());
         // Create Path reference here for consistent usage
-        let path = Path::new(path_str); 
+        let path = Path::new(path_str);
 
         if !path.exists() {
             eprintln!("{}", "ERROR! Path does not exist.".red());
@@ -96,7 +96,7 @@ fn main() -> io::Result<()> {
         io::stdin().read_line(&mut path_input)?;
         let path_str = path_input.trim().trim_matches(['\'', '"'].as_ref());
         // Create Path reference here for consistent usage
-        let path = Path::new(path_str); 
+        let path = Path::new(path_str);
 
         if !path.exists() {
             eprintln!(
