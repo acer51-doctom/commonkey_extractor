@@ -63,10 +63,11 @@ jobs:
     # This job depends on lint-and-test passing.
     # If lint-and-test fails, this job won't even start.
     needs: lint-and-test
+    runs-on: ${{ matrix.os }} # The runner OS changes based on the matrix entry
     strategy:
       fail-fast: false # Don't cancel other matrix jobs if one fails
-      matrix:
-        include:
+      matrix: # The matrix defines the different build combinations
+        include: # <--- This is where your specific build configurations go
           # Linux builds
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -75,12 +76,15 @@ jobs:
             target: aarch64-unknown-linux-gnu
             exe_suffix: "" # No suffix for Linux binaries
 
-          # Windows builds (cross-compiled from Linux and native MSVC)
-          - os: ubuntu-latest
+          # Windows builds
+          - os: ubuntu-latest # Cross-compile from Linux for GNU toolchain
             target: x86_64-pc-windows-gnu
             exe_suffix: ".exe"
-          - os: windows-latest
+          - os: windows-latest # Native build on Windows for MSVC toolchain
             target: x86_64-pc-windows-msvc
+            exe_suffix: ".exe"
+          - os: windows-latest # NEW: Native build on Windows for ARM (MSVC toolchain)
+            target: aarch64-pc-windows-msvc
             exe_suffix: ".exe"
 
           # macOS builds
@@ -91,7 +95,6 @@ jobs:
             target: aarch64-apple-darwin
             exe_suffix: "" # No suffix for macOS binaries
 
-    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
@@ -111,7 +114,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Cache key now includes the target to ensure correct cache per target
           key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.target }}-
@@ -133,15 +135,13 @@ jobs:
         shell: bash
 
       - name: Build native (Windows, macOS, or native Linux)
+        # This condition means: if it's not Linux (i.e., Windows or macOS), OR if it IS Linux but it's the native Linux target.
         if: runner.os != 'Linux' || matrix.target == 'x86_64-unknown-linux-gnu'
         run: cargo build --release --target=${{ matrix.target }}
 
       - name: Rename executable
-        # This step renames the compiled binary using the desired convention.
-        # It needs to be run after the build step for each matrix combination.
         run: |
           TARGET_DIR="target/${{ matrix.target }}/release"
-          # Original executable name including .exe suffix if applicable
           ORIGINAL_FILE_PATH="${TARGET_DIR}/commonkey_extractor${{ matrix.exe_suffix }}"
           RENAMED_SUFFIX=""
 
@@ -150,6 +150,7 @@ jobs:
             aarch64-unknown-linux-gnu) RENAMED_SUFFIX="linux_arm64" ;;
             x86_64-pc-windows-msvc) RENAMED_SUFFIX="windows_x64_msvc" ;;
             x86_64-pc-windows-gnu) RENAMED_SUFFIX="windows_x64_gnu" ;;
+            aarch64-pc-windows-msvc) RENAMED_SUFFIX="windows_arm64_msvc" ;; # New Windows ARM suffix
             x86_64-apple-darwin) RENAMED_SUFFIX="macos_x64" ;;
             aarch64-apple-darwin) RENAMED_SUFFIX="macos_arm64" ;;
             *)
@@ -158,7 +159,6 @@ jobs:
               ;;
           esac
 
-          # Construct the new file name: commonkey_extractor_<platform/os>_<arch>.<ext>
           NEW_FILE_NAME="commonkey_extractor_${RENAMED_SUFFIX}${{ matrix.exe_suffix }}"
           NEW_FILE_PATH="${TARGET_DIR}/${NEW_FILE_NAME}"
 
@@ -166,15 +166,12 @@ jobs:
           mv "${ORIGINAL_FILE_PATH}" "${NEW_FILE_PATH}"
           echo "Successfully renamed: ${ORIGINAL_FILE_PATH} -> ${NEW_FILE_PATH}"
 
-          # Set an environment variable so the next step (upload-artifact) knows the new path.
           echo "RENAMED_FILE_PATH=${NEW_FILE_PATH}" >> $GITHUB_ENV
-        shell: bash # Use bash for the case statement
+        shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          # Now, upload the file from the path stored in the environment variable.
           path: ${{ env.RENAMED_FILE_PATH }}
-          # The 'name' here is for the folder/label in the GitHub UI, not the file name itself.
           name: commonkey_extractor_binary_${{ matrix.target }}
           retention-days: 7
