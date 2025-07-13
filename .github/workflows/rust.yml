@@ -18,41 +18,46 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: x64
+            target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             arch: arm64
+            target: aarch64-unknown-linux-gnu
           - os: macos-latest
             arch: x64
+            target: x86_64-apple-darwin
           - os: macos-latest
             arch: arm64
+            target: aarch64-apple-darwin
           - os: windows-latest
             arch: x64
+            target: x86_64-pc-windows-msvc
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
+      uses: actions/setup-rust@v1
       with:
-        toolchain: stable
-        target: ${{ matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest' && 'aarch64-unknown-linux-gnu' || '' }}
-        override: true
+        rust-version: stable
+
+    - name: Add target
+      run: rustup target add ${{ matrix.target }}
 
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --release --target=${{ matrix.target }}
 
     - name: Rename binary
       shell: bash
       run: |
         mkdir -p output
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          cp target/debug/commonkey_extractor.exe output/commonkey_extractor_windows_${{ matrix.arch }}.exe
-        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-          cp target/debug/commonkey_extractor output/commonkey_extractor_macos_${{ matrix.arch }}
-        else
-          cp target/debug/commonkey_extractor output/commonkey_extractor_linux_${{ matrix.arch }}
+        BIN="commonkey_extractor"
+        EXT=""
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          EXT=".exe"
         fi
+        cp target/${{ matrix.target }}/release/$BIN$EXT output/${BIN}_${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'macos' || 'linux' }}_${{ matrix.arch }}$EXT
 
-    - name: Upload single binary
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: binary-${{ matrix.os }}-${{ matrix.arch }}
@@ -71,16 +76,16 @@ jobs:
     - name: Organize folders
       run: |
         mkdir -p final/x64 final/arm64
-
         find combined_binaries -type f -name "*x64*" -exec mv {} final/x64/ \;
         find combined_binaries -type f -name "*arm64*" -exec mv {} final/arm64/ \;
 
-    - name: Create zip
+    - name: Create final ZIP
       run: |
         cd final
         zip -r ../commonkey_extractors.zip .
 
-    - name: Upload final zip
+    - name: Upload final ZIP
       uses: actions/upload-artifact@v4
       with:
+        name: all-platforms-zip
         path: commonkey_extractors.zip
