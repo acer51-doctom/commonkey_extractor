@@ -49,13 +49,13 @@ jobs:
         run: cargo fetch
 
       - name: Build with cross
-       if: runner.os == 'Linux' && matrix.target != 'x86_64-unknown-linux-gnu'
-       run: cross build --release --target=${{ matrix.target }}
-       shell: bash
+        if: runner.os == 'Linux' && matrix.target != 'x86_64-unknown-linux-gnu'
+        run: cross build --release --target=${{ matrix.target }}
+        shell: bash
 
       - name: Build native
-      if: runner.os != 'Linux' || matrix.target == 'x86_64-unknown-linux-gnu'
-      run: cargo build --release --target=${{ matrix.target }}      
+        if: runner.os != 'Linux' || matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo build --release --target=${{ matrix.target }}      
 
       - name: Run tests (native only)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
