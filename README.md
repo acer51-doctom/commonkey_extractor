@@ -3,11 +3,13 @@ A common key extractor for all platforms! (Windows, Linux and macOS)
 
 ## Platforms that has been tested
 
-- [x] macOS (macOS Sequoia 15.5 (Host System))
-- [x] Windows (Windows 10 (VM))
-- [x] Linux (Ubuntu 25.04 (VM))
+- [x] macOS (macOS Sequoia 15.5 (Host System)) x64
+- [x] Windows (Windows 10 (VM)) x64
+- [x] Linux (Ubuntu 25.04 (VM)) x64
 
 Further testing will need to be done!
+
+ARM HAS NOT BEEN TESTED.
 
 ## Usage
 
@@ -57,4 +59,21 @@ Then, make a pull request and I'll see the changes you made.
 
 ## Issues
 
-Any issues? Report them to the Issues tab. Make sure to write your Operating System version and I will test it under a clean fresh install of it. <br> I will try to replicate it. **Make sure to say every detail for best assistance**
+Any issues? Report them to the Issues tab. Make sure to write your Operating System version and I will test it under a clean fresh install of it. I will try to replicate it. **Make sure to say every detail for best assistance.** <br> Here's a template of what you should do
+
+```
+Title : <Insert a small description>
+
+Contents:
+
+CPU Architecture: <ARM or x64>
+
+OS: <Put your OS>
+
+In-depth description (atleast 160 characters)
+
+
+(yes this is a college essay)
+(lmao)
+(i'm so funny)
+```
