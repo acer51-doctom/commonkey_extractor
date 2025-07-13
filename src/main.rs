@@ -12,14 +12,15 @@ const OTP_SIZE: u64 = 1024;
 
 fn clear_screen() {
     if cfg!(target_os = "windows") {
-        Command::new("cmd").args(&["/C", "cls"]).status().unwrap();
+        // Clippy fix: needless_borrows_for_generic_args
+        Command::new("cmd").args(["/C", "cls"]).status().unwrap();
     } else {
         print!("\x1B[2J\x1B[H");
         io::stdout().flush().unwrap();
     }
 }
 
-fn extract_common_key(path: &str) -> io::Result<[u8; COMMON_KEY_SIZE]> {
+fn extract_common_key(path: &Path) -> io::Result<[u8; COMMON_KEY_SIZE]> { // Changed signature to &Path
     let mut file = File::open(path)?;
     file.seek(io::SeekFrom::Start(COMMON_KEY_OFFSET))?;
 
@@ -28,13 +29,12 @@ fn extract_common_key(path: &str) -> io::Result<[u8; COMMON_KEY_SIZE]> {
     Ok(key)
 }
 
-fn is_valid_otp(path: &str) -> bool {
-    let p = Path::new(path);
-    if p.extension().and_then(|s| s.to_str()) != Some("bin") {
+fn is_valid_otp(path: &Path) -> bool { // Changed signature to &Path
+    if path.extension().and_then(|s| s.to_str()) != Some("bin") {
         return false;
     }
 
-    match metadata(p) {
+    match metadata(path) { // Clippy fix: needless_borrow - `path` is already a &Path
         Ok(meta) => meta.len() == OTP_SIZE,
         Err(_) => false,
     }
@@ -44,23 +44,27 @@ fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 1 {
-        let path = args[1].trim().trim_matches(['\'', '"'].as_ref());
+        let path_str = args[1].trim().trim_matches(['\'', '"'].as_ref());
+        let path = Path::new(path_str); // Create Path reference once
 
-        if !Path::new(path).exists() {
+        if !path.exists() {
             eprintln!("{}", "ERROR! Path does not exist.".red());
             std::process::exit(1);
         }
 
+        // Clippy fix: needless_borrow - `path` is already a &Path
         if !is_valid_otp(path) {
             eprintln!("{}", "ERROR! The file you entered is NOT a .bin file or is not exactly 1024 bytes.".red());
             std::process::exit(1);
         }
 
+        // Clippy fix: needless_borrow - `path` is already a &Path
         match extract_common_key(path) {
             Ok(key) => {
                 print!("Your Common Key is: ");
                 for byte in &key {
-                    print!("{:02X}", byte);
+                    // Clippy fix: uninlined_format_args
+                    print!("{byte:02X}");
                 }
                 println!();
             }
@@ -80,11 +84,12 @@ fn main() -> io::Result<()> {
         print!("> ");
         io::stdout().flush()?; // flush prompt
 
-        let mut path = String::new();
-        io::stdin().read_line(&mut path)?;
-        let path = path.trim().trim_matches(['\'', '"'].as_ref());
+        let mut path_input = String::new();
+        io::stdin().read_line(&mut path_input)?;
+        let path_str = path_input.trim().trim_matches(['\'', '"'].as_ref());
+        let path = Path::new(path_str); // Create Path reference once
 
-        if !Path::new(&path).exists() {
+        if !path.exists() {
             eprintln!(
                 "{}",
                 "ERROR! Path does not exist. Did you misspell something? Trying again in 5 seconds..."
@@ -94,7 +99,8 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        if !is_valid_otp(&path) {
+        // Clippy fix: needless_borrow - `path` is already a &Path
+        if !is_valid_otp(path) {
             eprintln!(
                 "{}",
                 "ERROR! The file you entered is NOT a .bin file. Trying again in 5 seconds..."
@@ -104,11 +110,13 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        match extract_common_key(&path) {
+        // Clippy fix: needless_borrow - `path` is already a &Path
+        match extract_common_key(path) {
             Ok(key) => {
                 println!("\nWii U Common Key:");
                 for byte in &key {
-                    print!("{:02X}", byte);
+                    // Clippy fix: uninlined_format_args
+                    print!("{byte:02X}");
                 }
                 println!("\n");
                 println!("Press Ctrl+C to quit...");
