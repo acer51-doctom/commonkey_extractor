@@ -28,7 +28,7 @@ The minimum system requirements are:
 
 - Windows 8.1 or newer
     - **Will work** on Windows mods that are based on Windows 10 or 11 (exemple: Reunion 7)
-- OS X 10.11 El Capitan
+- macOS 10.13 High Sierra
 
 ## Contributing
 To Contribute, fork the repo and make a branch using the following scheme:

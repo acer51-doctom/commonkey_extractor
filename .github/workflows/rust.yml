@@ -66,4 +66,4 @@ jobs:
         with:
           name: ${{ matrix.target }}-binary
           path: |
-            target/${{ matrix.target }}/release/<your_binary_name>${{ matrix.target == 'x86_64-pc-windows-gnu' || matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
+            target/${{ matrix.target }}/release/commonkey_extractor${{ matrix.target == 'x86_64-pc-windows-gnu' || matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
