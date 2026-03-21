@@ -43,7 +43,13 @@ Then, make a pull request and I'll see the changes you made.
 
 ## Star History
 
-<iframe style="width:100%;height:auto;min-width:600px;min-height:400px;" src="https://www.star-history.com/?repos=acer51-doctom%2Fcommonkey_extractor&type=date&legend=bottom-right" frameBorder="0"></iframe>
+<a href="https://www.star-history.com/?repos=acer51-doctom%2Fcommonkey_extractor&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=acer51-doctom/commonkey_extractor&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=acer51-doctom/commonkey_extractor&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=acer51-doctom/commonkey_extractor&type=date&legend=bottom-right" />
+ </picture>
+</a>
 
 
 ## Issues
