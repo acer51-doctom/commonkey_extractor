@@ -6,7 +6,7 @@ use std::path::PathBuf;
 pub fn launch_gui() {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([450.0, 250.0]) // Slightly wider to fit the new button
+            .with_inner_size([450.0, 250.0])
             .with_resizable(false),
         ..Default::default()
     };
@@ -35,6 +35,7 @@ impl eframe::App for MyApp {
 
             ui.add_space(10.0);
 
+            // COLLAPSED IF: Combined the button click and the file dialog check
             if ui.button("📁 Select otp.bin").clicked() {
                 if let Some(path) = FileDialog::new()
                     .add_filter("Binary file", &["bin"])
@@ -83,16 +84,14 @@ impl eframe::App for MyApp {
                 ui.group(|ui| {
                     ui.label("Common Key:");
                     ui.horizontal(|ui| {
-                        // Display the key in a non-editable text box (monospace for alignment)
                         let mut key_to_display = key.clone();
                         ui.add(
                             egui::TextEdit::singleline(&mut key_to_display)
                                 .font(egui::TextStyle::Monospace)
                                 .interactive(false),
-                        ); // Read-only
+                        );
 
-                        // The Copy Button
-                        if ui.button("📋").clicked() {
+                        if ui.button("📋 Copy").clicked() {
                             ui.output_mut(|o| o.copied_text = key.clone());
                         }
                     });
