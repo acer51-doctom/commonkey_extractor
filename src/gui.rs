@@ -14,7 +14,8 @@ pub fn launch_gui() {
         "Wii U Common Key Extractor",
         options,
         Box::new(|_cc| Box::new(MyApp::default())),
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[derive(Default)]
@@ -44,19 +45,24 @@ impl eframe::App for MyApp {
                         self.error_message = None;
                         self.common_key = None;
                     } else {
-                        self.error_message = Some("Invalid file. Must be a 1024-byte .bin file.".to_string());
+                        self.error_message =
+                            Some("Invalid file. Must be a 1024-byte .bin file.".to_string());
                         self.selected_file = None;
                     }
                 }
             }
 
             if let Some(path) = &self.selected_file {
-                ui.label(format!("Selected: {}", path.file_name().unwrap().to_string_lossy()));
-                
+                ui.label(format!(
+                    "Selected: {}",
+                    path.file_name().unwrap().to_string_lossy()
+                ));
+
                 if ui.button("🚀 Extract Common Key").clicked() {
                     match core::extract_common_key(path) {
                         Ok(key) => {
-                            self.common_key = Some(key.iter().map(|byte| format!("{byte:02X}")).collect());
+                            self.common_key =
+                                Some(key.iter().map(|byte| format!("{byte:02X}")).collect());
                             self.error_message = None;
                         }
                         Err(e) => {
@@ -79,9 +85,11 @@ impl eframe::App for MyApp {
                     ui.horizontal(|ui| {
                         // Display the key in a non-editable text box (monospace for alignment)
                         let mut key_to_display = key.clone();
-                        ui.add(egui::TextEdit::singleline(&mut key_to_display)
-                            .font(egui::TextStyle::Monospace)
-                            .interactive(false)); // Read-only
+                        ui.add(
+                            egui::TextEdit::singleline(&mut key_to_display)
+                                .font(egui::TextStyle::Monospace)
+                                .interactive(false),
+                        ); // Read-only
 
                         // The Copy Button
                         if ui.button("📋").clicked() {
