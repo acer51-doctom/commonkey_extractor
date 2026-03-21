@@ -37,19 +37,13 @@ Then, make a pull request and I'll see the changes you made.
 - [x] Make it functional and usable
 - [x] Add a Terminal User Interface (TUI)
 - [x] Make a Windows release
-- [ ] Perhaps make a GUI too
+- [x] Perhaps make a GUI too
 - [ ] Add more features
 
 
 ## Star History
 
-<a href="https://www.star-history.com/#acer51-doctom/commonkey_extractor&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=acer51-doctom/commonkey_extractor&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=acer51-doctom/commonkey_extractor&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=acer51-doctom/commonkey_extractor&type=Date" />
- </picture>
-</a>
+<iframe style="width:100%;height:auto;min-width:600px;min-height:400px;" src="https://www.star-history.com/?repos=acer51-doctom%2Fcommonkey_extractor&type=date&legend=bottom-right" frameBorder="0"></iframe>
 
 
 ## Issues
