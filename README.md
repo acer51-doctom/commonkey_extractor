@@ -1,34 +1,29 @@
-# Common Key Extractor for all platforms!
-A common key extractor for all platforms! (Windows, Linux and macOS)
+# Wii U Common Key Extractor
+A universal tool to extract the Common Key from your `otp.bin` file.
 
-## Platforms that has been tested
-
-- [x] macOS (macOS Sequoia 15.5 (Host System)) x64
-- [x] Windows (Windows 10 (VM)) x64
-- [x] Linux (Ubuntu 25.04 (VM)) x64
-
-Further testing will need to be done!
-
-ARM HAS NOT BEEN TESTED.
+## Features
+- **GUI Mode (Default):** A clean, easy-to-use interface for selecting files and viewing the key.
+- **Interactive TUI:** A classic terminal interface for those who prefer the command line.
+- **Direct CLI:** Pass a file path as an argument for instant results.
 
 ## Usage
 
-- Windows
-    - For Windows, you just need to double click the executable and drag and drop your OTP from Explorer or enter manually the path to it.
-- macOS and Linux
-    - For macOS, in Terminal, in the same directory as your executable, you must execute the following command: <br>
-    `chmod +x commonkey_extractor && ./commonkey_extractor`
-    Then, you must enter the path to your OTP. You can also drag and drop it from Finder or your File Explorer into the Terminal, it will be a path directly to it.
+### Windows
+- **GUI:** Just double-click `commonkey_extractor.exe`.
+- **Terminal:** Run `.\commonkey_extractor.exe --tui` for interactive mode or `.\commonkey_extractor.exe <path_to_otp>` for direct extraction.
 
-## Minimum system requirements
+### macOS and Linux
+- **GUI:** Navigate to the folder where the executable is located and render it executable by typing this in your terminal window : `chmod +x commonkey_extractor`
+  then, you should be able to double click the file.
+- **Terminal:** Navigate to the folder where the executable is located and render it executable by typing this in your terminal window: `chmod +x commonkey_extractor`
+  then, run `./commonkey_extractor --tui` for interactive mode or `./commonkey_extractor <path_to_otp>` for direct extraction.
 
-This tool has been tested on a Windows 10 22H2 Virtual Machine (VM), Linux Ubuntu 25.04 VM and macOS Sequoia 15.5 (Host) as said in the **Platforms that has been tested** section.
+## Platforms Tested
+- [x] macOS (Sequoia 15.5) x64
+- [x] Windows 10 x64
+- [x] Linux (Ubuntu 25.04) x64
 
-The minimum system requirements are:
-
-- Windows 8.1 or newer
-    - **Will work** on Windows mods that are based on Windows 10 or 11 (exemple: Reunion 7)
-- macOS 10.13 High Sierra
+***Note that the ARM based builds has __NOT__ been tested.***
 
 ## Contributing
 To Contribute, fork the repo and make a branch using the following scheme:
@@ -70,10 +65,5 @@ CPU Architecture: <ARM or x64>
 
 OS: <Put your OS>
 
-In-depth description (atleast 160 characters)
-
-
-(yes this is a college essay)
-(lmao)
-(i'm so funny)
+In-depth description:
 ```

@@ -1,177 +1,83 @@
-# .github/workflows/rust.yml
-
-name: Rust CI & Build
+name: Rust CI & Release
 
 on:
   push:
-    branches:
-      - master # Triggers on pushes to the 'master' branch
-      - main # Often used as the default branch name, include it for robustness
+    branches: [master, main]
+    tags: ['v*'] # Triggers release logic on tags
   pull_request:
-    branches:
-      - master
-      - main
-  # Optional: Allows manual triggering from the GitHub Actions UI
-  workflow_dispatch:
+    branches: [master, main]
 
 env:
-  # Ensure colored output in logs for better readability
   CARGO_TERM_COLOR: always
 
 jobs:
-  # This job runs linters and tests for faster feedback, typically only on one platform
-  lint-and-test:
-    runs-on: ubuntu-latest # Linux is generally fastest and cheapest for CI checks
-
+  # 1. Fast Check: Lint and Test (Runs on every push/PR)
+  quality-gate:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain (stable, with components)
-        uses: dtolnay/rust-toolchain@stable # Recommended modern action
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwayland-dev libx11-dev libxkbcommon-dev libasound2-dev
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          components: clippy, rustfmt # Install these components for linting
-
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build (to ensure dependencies are compiled for clippy/tests)
-        run: cargo build --verbose
-
-      - name: Run tests
-        run: cargo test --verbose
-
-      - name: Run Clippy (linter)
-        # -D warnings treats lint warnings as errors, failing the build
+          components: clippy, rustfmt
+      - uses: swatinem/rust-cache@v2 # The secret to speed
+      - name: Format Check
+        run: cargo fmt --all -- --check
+      - name: Clippy
         run: cargo clippy -- -D warnings
+      - name: Run Tests
+        run: cargo test
 
-      - name: Run cargo fmt check
-        # --check makes it fail if files are not formatted, without modifying them
-        run: cargo fmt -- --check
-
-  # This job builds for multiple targets using a matrix strategy
-  build-matrix:
-    # This job depends on lint-and-test passing.
-    # If lint-and-test fails, this job won't even start.
-    needs: lint-and-test
-    runs-on: ${{ matrix.os }} # The runner OS changes based on the matrix entry
+  # 2. Build Matrix: Compiles for all platforms in parallel
+  build:
+    needs: quality-gate
     strategy:
-      fail-fast: false # Don't cancel other matrix jobs if one fails
-      matrix: # The matrix defines the different build combinations
-        include: # <--- This is where your specific build configurations go
-          # Linux builds
+      fail-fast: false
+      matrix:
+        include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            exe_suffix: ""
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            exe_suffix: "" # No suffix for Linux binaries
-
-          # Windows builds
-          - os: ubuntu-latest # Cross-compile from Linux for GNU toolchain
-            target: x86_64-pc-windows-gnu
-            exe_suffix: ".exe"
-          - os: windows-latest # Native build on Windows for MSVC toolchain
+            suffix: linux_x64
+          - os: windows-latest
             target: x86_64-pc-windows-msvc
-            exe_suffix: ".exe"
-          - os: windows-latest # NEW: Native build on Windows for ARM (MSVC toolchain)
-            target: aarch64-pc-windows-msvc
-            exe_suffix: ".exe"
-
-          # macOS builds
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            exe_suffix: ""
+            suffix: windows_x64
           - os: macos-latest
             target: aarch64-apple-darwin
-            exe_suffix: "" # No suffix for macOS binaries
-
-
+            suffix: macos_arm64
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain for target ${{ matrix.target }}
-        uses: dtolnay/rust-toolchain@stable # Recommended modern action
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.target }}-
-
-      - name: Install cross (for Linux ARM & Windows GNU cross-compilation)
-        if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-gnu')
-        run: cargo install cross --git https://github.com/cross-rs/cross.git 
-
-      - name: Install cross-compilers for Windows GNU (Linux only)
-        if: runner.os == 'Linux' && matrix.target == 'x86_64-pc-windows-gnu'
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64
-
-      - name: Download all dependencies (cargo fetch)
-        run: cargo fetch
-
-      - name: Build with cross (Linux cross-compilation)
-        if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-gnu')
-        run: cross build --release --target=${{ matrix.target }}
-        shell: bash
-
-      - name: Build native (Windows, macOS, or native Linux)
-        # This condition means: if it's not Linux (i.e., Windows or macOS), OR if it IS Linux but it's the native Linux target.
-        if: runner.os != 'Linux' || matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo build --release --target=${{ matrix.target }}
-
-      - name: Rename executable
+      - uses: actions/checkout@v4
+      - name: Install Dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
-          TARGET_DIR="target/${{ matrix.target }}/release"
-          ORIGINAL_FILE_PATH="${TARGET_DIR}/commonkey_extractor${{ matrix.exe_suffix }}"
-          RENAMED_SUFFIX=""
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwayland-dev libx11-dev libxkbcommon-dev libasound2-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@v2
+      
+      - name: Build Release
+        run: cargo build --release --target ${{ matrix.target }}
 
-          case "${{ matrix.target }}" in
-            x86_64-unknown-linux-gnu) RENAMED_SUFFIX="linux_x64" ;;
-            aarch64-unknown-linux-gnu) RENAMED_SUFFIX="linux_arm64" ;;
-            x86_64-pc-windows-msvc) RENAMED_SUFFIX="windows_x64_msvc" ;;
-            x86_64-pc-windows-gnu) RENAMED_SUFFIX="windows_x64_gnu" ;;
-            aarch64-pc-windows-msvc) RENAMED_SUFFIX="windows_arm64_msvc" ;; # New Windows ARM suffix
-            x86_64-apple-darwin) RENAMED_SUFFIX="macos_x64" ;;
-            aarch64-apple-darwin) RENAMED_SUFFIX="macos_arm64" ;;
-            *)
-              echo "Error: Unknown target '${{ matrix.target }}' for renaming."
-              exit 1
-              ;;
-          esac
-
-          NEW_FILE_NAME="commonkey_extractor_${RENAMED_SUFFIX}${{ matrix.exe_suffix }}"
-          NEW_FILE_PATH="${TARGET_DIR}/${NEW_FILE_NAME}"
-
-          echo "Attempting to rename '${ORIGINAL_FILE_PATH}' to '${NEW_FILE_PATH}'"
-          mv "${ORIGINAL_FILE_PATH}" "${NEW_FILE_PATH}"
-          echo "Successfully renamed: ${ORIGINAL_FILE_PATH} -> ${NEW_FILE_PATH}"
-
-          echo "RENAMED_FILE_PATH=${NEW_FILE_PATH}" >> $GITHUB_ENV
+      - name: Prepare Artifacts
         shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          EXE_NAME="commonkey_extractor"
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            mv ${EXE_NAME}.exe ${EXE_NAME}_${{ matrix.suffix }}.exe
+            echo "ASSET=${EXE_NAME}_${{ matrix.suffix }}.exe" >> $GITHUB_ENV
+          else
+            mv ${EXE_NAME} ${EXE_NAME}_${{ matrix.suffix }}
+            echo "ASSET=${EXE_NAME}_${{ matrix.suffix }}" >> $GITHUB_ENV
+          fi
 
-      - name: Upload artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          path: ${{ env.RENAMED_FILE_PATH }}
-          name: commonkey_extractor_binary_${{ matrix.target }}
-          retention-days: 7
+          name: ${{ env.ASSET }}
+          path: target/${{ matrix.target }}/release/${{ env.ASSET }}
