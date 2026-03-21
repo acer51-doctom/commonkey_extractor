@@ -1,128 +1,275 @@
 name: Rust CI & Release
 
+
+
 on:
+
   push:
+
     branches: [master, main]
+
     tags: ['v*']
+
   pull_request:
+
     branches: [master, main]
+
+
 
 env:
+
   CARGO_TERM_COLOR: always
+
   BIN_NAME: commonkey_extractor
 
+
+
 jobs:
+
+  # 1. Quality Gate: Lint and Test
+
   quality-gate:
-    # Use 24.04 to ensure we have the latest GLIBC for build scripts
-    runs-on: ubuntu-24.04
+
+    runs-on: ubuntu-latest
+
     steps:
+
       - uses: actions/checkout@v4
+
       - name: Install Dependencies
+
         run: |
+
           sudo apt-get update
+
           sudo apt-get install -y libgtk-3-dev libwayland-dev libx11-dev libxkbcommon-dev libasound2-dev
+
       - uses: dtolnay/rust-toolchain@stable
+
         with:
+
           components: clippy, rustfmt
+
       - uses: swatinem/rust-cache@v2
+
       - name: Format Check
+
         run: cargo fmt --all -- --check
+
       - name: Clippy
+
         run: cargo clippy -- -D warnings
+
       - name: Run Tests
+
         run: cargo test
 
+
+
+  # 2. Build Matrix: 6-way cross-platform build
+
   build:
+
     needs: quality-gate
+
     strategy:
+
       fail-fast: false
+
       matrix:
+
         include:
-          - os: ubuntu-24.04
+
+          # Linux
+
+          - os: ubuntu-latest
+
             target: x86_64-unknown-linux-gnu
+
             suffix: linux_x64
-            use_zig: false
-          - os: ubuntu-24.04
+
+            use_cross: false
+
+          - os: ubuntu-latest
+
             target: aarch64-unknown-linux-gnu
+
             suffix: linux_arm64
-            use_zig: true
+
+            use_cross: true
+
+          # Windows
+
           - os: windows-latest
+
             target: x86_64-pc-windows-msvc
+
             suffix: windows_x64
+
+            use_cross: false
+
+          - os: windows-latest
+
+            target: aarch64-pc-windows-msvc
+
+            suffix: windows_arm64
+
+            use_cross: false
+
+          # macOS
+
           - os: macos-latest
+
+            target: x86_64-apple-darwin
+
+            suffix: macos_x64
+
+            use_cross: false
+
+          - os: macos-latest
+
             target: aarch64-apple-darwin
+
             suffix: macos_arm64
 
+            use_cross: false
+
+
+
     runs-on: ${{ matrix.os }}
+
     steps:
+
       - uses: actions/checkout@v4
+
       
-      # Handle Linux Dependencies (including ARM64 headers)
-      - name: Install Linux Dependencies
-        if: runner.os == 'Linux'
+
+      - name: Install Dependencies (Linux x64)
+
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+
         run: |
+
           sudo apt-get update
+
           sudo apt-get install -y libgtk-3-dev libwayland-dev libx11-dev libxkbcommon-dev libasound2-dev
-          if [ "${{ matrix.use_zig }}" == "true" ]; then
-            # Install Zig and cargo-zigbuild for easier GLIBC targeting
-            sudo snap install zig --classic --beta
-            cargo install cargo-zigbuild
-            # Add the ARM64 architecture to apt to get target libs
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y libgtk-3-dev:arm64 libasound2-dev:arm64
-          fi
+
+
 
       - uses: dtolnay/rust-toolchain@stable
+
         with:
+
           target: ${{ matrix.target }}
+
       
+
       - uses: swatinem/rust-cache@v2
 
+
+
+      - name: Install Cross
+
+        if: matrix.use_cross
+
+        run: cargo install cross --git https://github.com/cross-rs/cross.git
+
+
+
       - name: Build Release
+
         shell: bash
+
         run: |
-          if [ "${{ matrix.use_zig }}" == "true" ]; then
-            # We target GLIBC 2.31 for maximum compatibility with older TVs/Raspberry Pis
-            cargo zigbuild --release --target ${{ matrix.target }}.2.31
+
+          if [ "${{ matrix.use_cross }}" == "true" ]; then
+
+            cross build --release --target ${{ matrix.target }}
+
           else
+
             cargo build --release --target ${{ matrix.target }}
+
           fi
 
+
+
       - name: Prepare Artifacts
+
         shell: bash
+
         run: |
-          # Use a more robust way to find the binary
-          EXT=""
-          if [ "${{ runner.os }}" == "Windows" ]; then EXT=".exe"; fi
-          
-          SOURCE_PATH="target/${{ matrix.target }}/release/${BIN_NAME}${EXT}"
-          DEST_PATH="target/${{ matrix.target }}/release/${BIN_NAME}_${{ matrix.suffix }}${EXT}"
-          
-          mv "$SOURCE_PATH" "$DEST_PATH"
-          echo "ASSET_PATH=$DEST_PATH" >> $GITHUB_ENV
+
+          cd target/${{ matrix.target }}/release
+
+          if [ "${{ runner.os }}" == "Windows" ]; then
+
+            mv ${BIN_NAME}.exe ${BIN_NAME}_${{ matrix.suffix }}.exe
+
+            echo "ASSET_PATH=target/${{ matrix.target }}/release/${BIN_NAME}_${{ matrix.suffix }}.exe" >> $GITHUB_ENV
+
+          else
+
+            mv ${BIN_NAME} ${BIN_NAME}_${{ matrix.suffix }}
+
+            echo "ASSET_PATH=target/${{ matrix.target }}/release/${BIN_NAME}_${{ matrix.suffix }}" >> $GITHUB_ENV
+
+          fi
+
+
 
       - name: Upload Artifacts
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: ${{ matrix.suffix }}
+
           path: ${{ env.ASSET_PATH }}
 
+
+
+  # 3. Release: Create GitHub Release and upload all binaries
+
   release:
+
     if: startsWith(github.ref, 'refs/tags/v')
+
     needs: build
+
     runs-on: ubuntu-latest
+
     permissions:
+
       contents: write
+
     steps:
+
       - uses: actions/checkout@v4
+
       - name: Download All Artifacts
+
         uses: actions/download-artifact@v4
+
         with:
+
           path: release-assets
+
           merge-multiple: true
+
+
+
       - name: Create Release
+
         uses: softprops/action-gh-release@v2
+
         with:
+
           files: release-assets/*
+
           generate_release_notes: true
+
+          draft: false
+
+          prerelease: false
