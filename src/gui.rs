@@ -35,20 +35,19 @@ impl eframe::App for MyApp {
 
             ui.add_space(10.0);
 
-            if ui.button("📁 Select otp.bin").clicked() {
-                if let Some(path) = FileDialog::new()
+            if ui.button("📁 Select otp.bin").clicked()
+                && let Some(path) = FileDialog::new()
                     .add_filter("Binary file", &["bin"])
                     .pick_file()
-                {
-                    if core::is_valid_otp(&path) {
-                        self.selected_file = Some(path);
-                        self.error_message = None;
-                        self.common_key = None;
-                    } else {
-                        self.error_message =
-                            Some("Invalid file. Must be a 1024-byte .bin file.".to_string());
-                        self.selected_file = None;
-                    }
+            {
+                if core::is_valid_otp(&path) {
+                    self.selected_file = Some(path);
+                    self.error_message = None;
+                    self.common_key = None;
+                } else {
+                    self.error_message =
+                        Some("Invalid file. Must be a 1024-byte .bin file.".to_string());
+                    self.selected_file = None;
                 }
             }
 
