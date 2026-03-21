@@ -35,7 +35,6 @@ impl eframe::App for MyApp {
 
             ui.add_space(10.0);
 
-            // COLLAPSED IF: This satisfies Clippy's requirement
             if ui.button("📁 Select otp.bin").clicked() {
                 if let Some(path) = FileDialog::new()
                     .add_filter("Binary file", &["bin"])
